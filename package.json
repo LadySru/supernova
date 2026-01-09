@@ -1,0 +1,26 @@
+{
+  "name": "supernova-music-bot",
+  "version": "1.0.0",
+  "description": "✨💖 Magical Girl Supernova - A Discord bot that plays YouTube music with love!",
+  "main": "bot.js",
+  "private": true,
+  "scripts": {
+    "start": "node bot.js"
+  },
+  "keywords": ["discord", "bot", "music", "youtube", "magical-girl", "supernova"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "discord.js": "^14.16.3",
+    "@discordjs/voice": "^0.17.0",
+    "@distube/ytdl-core": "^4.14.4",
+    "yt-search": "^2.10.4",
+    "ffmpeg-static": "^5.2.0",
+    "libsodium-wrappers": "^0.7.15",
+    "sodium-native": "^4.2.0",
+    "tweetnacl": "^1.0.3"
+  },
+  "engines": {
+    "node": "20.x"
+  }
+}
