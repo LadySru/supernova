@@ -68,6 +68,10 @@ client.on('ready', async () => {
                     required: false
                 }
             ]
+        },
+        {
+            name: 'help',
+            description: '💫 Learn how to use Supernova and see all commands!'
         }
     ];
 
@@ -101,6 +105,8 @@ client.on('interactionCreate', async (interaction) => {
             await handleNowPlaying(interaction);
         } else if (commandName === 'setup-player') {
             await handleSetupPlayer(interaction);
+        } else if (commandName === 'help') {
+            await handleHelp(interaction);
         }
     } else if (interaction.isButton()) {
         await handleButton(interaction);
@@ -231,6 +237,102 @@ async function handleSetupPlayer(interaction) {
 async function handleButton(interaction) {
     const serverQueue = queue.get(interaction.guild.id);
 
+    // Help navigation buttons
+    if (interaction.customId.startsWith('help_')) {
+        const embed1 = new EmbedBuilder()
+            .setColor('#FF69B4')
+            .setTitle('✨💖 Welcome to Supernova! 💖✨')
+            .setDescription('*Magical Girl Supernova is here to spread love and music!*\n\n**Quick Start Guide:**')
+            .addFields(
+                { name: '1️⃣ Join a Voice Channel', value: 'Connect to any voice channel in your server first!', inline: false },
+                { name: '2️⃣ Play Your First Song', value: 'Use `/play <song name>` to summon a melody!\nExample: `/play never gonna give you up`', inline: false },
+                { name: '3️⃣ Control Playback', value: 'Use `/pause`, `/resume`, `/skip`, or `/stop` to control the music!', inline: false },
+                { name: '4️⃣ Create Music Sanctuary (Optional)', value: 'Admins can use `/setup-player` to create a dedicated music channel with buttons!', inline: false }
+            )
+            .setFooter({ text: '💫 Page 1/4 • Use the buttons below to navigate!' })
+            .setTimestamp();
+
+        const embed2 = new EmbedBuilder()
+            .setColor('#FF1493')
+            .setTitle('📜 All Commands')
+            .setDescription('*Here are all my magical powers!* ✨')
+            .addFields(
+                {
+                    name: '🎵 Music Commands',
+                    value: '**`/play <song>`** - Summon a song from YouTube\n> You can use a song name or YouTube URL!\n> Example: `/play despacito`\n\n**`/pause`** - Pause the current song\n> Take a break from the music\n\n**`/resume`** - Resume playback\n> Continue where you left off!\n\n**`/skip`** - Skip to the next song\n> Don\'t like this one? Next!\n\n**`/stop`** - Stop music and clear queue\n> End the concert completely',
+                    inline: false
+                },
+                {
+                    name: '📊 Info Commands',
+                    value: '**`/queue`** - View your playlist\n> See what\'s coming up next!\n\n**`/nowplaying`** - Current song info\n> What\'s this melody?\n\n**`/help`** - Show this help menu\n> You\'re here now! 💖',
+                    inline: false
+                },
+                {
+                    name: '✨ Special Commands (Admin Only)',
+                    value: '**`/setup-player [name]`** - Create music sanctuary\n> Creates a special channel with interactive buttons!\n> Example: `/setup-player channel-name:💖-music-zone`\n> Requires Administrator permission',
+                    inline: false
+                }
+            )
+            .setFooter({ text: '💫 Page 2/4 • All Commands' })
+            .setTimestamp();
+
+        const embed3 = new EmbedBuilder()
+            .setColor('#FFB6C1')
+            .setTitle('🎮 Interactive Music Sanctuary')
+            .setDescription('*The music sanctuary is a special channel with magical buttons!*')
+            .addFields(
+                { name: 'What is it?', value: 'A dedicated text channel that shows:\n• Currently playing song\n• Real-time playback status\n• Queue size\n• Interactive control buttons!', inline: false },
+                { name: '🎀 Sanctuary Buttons', value: '**💗 Pause / 💖 Resume** - Toggle playback\n**💫 Skip** - Skip to next song\n**💔 Stop** - Stop everything\n**📜 Playlist** - View queue (private message)', inline: false },
+                { name: 'How to Create', value: '1. Make sure you have **Administrator** permission\n2. Use `/setup-player` command\n3. Optionally add a custom name\n4. A magical channel appears! ✨', inline: false },
+                { name: '💡 Tips', value: '• The sanctuary updates automatically!\n• Only one per server\n• Shows beautiful pink embeds\n• Members can\'t send messages there', inline: false }
+            )
+            .setFooter({ text: '💫 Page 3/4 • Music Sanctuary Guide' })
+            .setTimestamp();
+
+        const embed4 = new EmbedBuilder()
+            .setColor('#FF69B4')
+            .setTitle('💝 Tips & Tricks')
+            .setDescription('*Make the most of Supernova!*')
+            .addFields(
+                { name: '🎵 Playing Music', value: '• You can search by song name or paste a YouTube URL\n• Songs are added to queue automatically\n• Queue plays in order - first added, first played\n• Multiple people can add songs!', inline: false },
+                { name: '💫 Voice Channel', value: '• You must be in a voice channel to use commands\n• Bot joins your current channel\n• Bot stays until queue is empty or `/stop` is used\n• Anyone in voice can control playback!', inline: false },
+                { name: '✨ Legacy Commands', value: 'You can also use `!` prefix commands:\n`!play`, `!pause`, `!resume`, `!skip`, `!stop`, `!queue`\nBut slash commands (`/`) are recommended!', inline: false },
+                { name: '🌟 Permissions Needed', value: '**For Music:** Connect, Speak, View Channels\n**For Sanctuary:** Manage Channels (admin only)\n**Everyone Else:** Can use all music commands!', inline: false },
+                { name: '💖 Need More Help?', value: 'Having issues? Check that:\n• Bot has proper permissions\n• You\'re in a voice channel\n• The voice channel isn\'t full\n• Bot is online and connected', inline: false }
+            )
+            .setFooter({ text: '💫 Page 4/4 • Tips & Tricks' })
+            .setTimestamp();
+
+        const row = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId('help_quick_start')
+                    .setLabel('📖 Quick Start')
+                    .setStyle(ButtonStyle.Primary),
+                new ButtonBuilder()
+                    .setCustomId('help_commands')
+                    .setLabel('📜 Commands')
+                    .setStyle(ButtonStyle.Primary),
+                new ButtonBuilder()
+                    .setCustomId('help_sanctuary')
+                    .setLabel('🎮 Sanctuary')
+                    .setStyle(ButtonStyle.Success),
+                new ButtonBuilder()
+                    .setCustomId('help_tips')
+                    .setLabel('💝 Tips')
+                    .setStyle(ButtonStyle.Secondary)
+            );
+
+        let selectedEmbed = embed1;
+        if (interaction.customId === 'help_commands') selectedEmbed = embed2;
+        else if (interaction.customId === 'help_sanctuary') selectedEmbed = embed3;
+        else if (interaction.customId === 'help_tips') selectedEmbed = embed4;
+
+        await interaction.update({ embeds: [selectedEmbed], components: [row] });
+        return;
+    }
+
+    // Music player buttons
     if (interaction.customId === 'play_pause') {
         if (!serverQueue || !serverQueue.songs.length) {
             return interaction.reply({ content: '💫 No melody is playing right now!', ephemeral: true });
@@ -381,28 +483,44 @@ async function updatePlayerEmbed(guildId) {
 }
 
 async function handlePlay(interaction) {
+    console.log(`💖 Play command received from ${interaction.user.tag}: "${interaction.options.getString('song')}"`);
     await interaction.deferReply();
 
     const voiceChannel = interaction.member.voice.channel;
     
     if (!voiceChannel) {
+        console.log('❌ User not in voice channel');
         return interaction.editReply('💫 You need to be in a voice channel to summon melodies!');
     }
+
+    console.log(`✅ User in voice channel: ${voiceChannel.name}`);
 
     const songInput = interaction.options.getString('song');
     const serverQueue = queue.get(interaction.guild.id);
     let song;
 
     try {
+        // Add timeout for YouTube operations
+        const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Search timed out')), 15000)
+        );
+
         if (songInput.includes('youtube.com') || songInput.includes('youtu.be')) {
-            const songInfo = await ytdl.getInfo(songInput);
+            const songInfo = await Promise.race([
+                ytdl.getInfo(songInput),
+                timeoutPromise
+            ]);
             song = {
                 title: songInfo.videoDetails.title,
                 url: songInfo.videoDetails.video_url,
             };
         } else {
-            const videoResult = await ytSearch(songInput);
-            if (!videoResult.videos.length) {
+            const videoResult = await Promise.race([
+                ytSearch(songInput),
+                timeoutPromise
+            ]);
+            
+            if (!videoResult || !videoResult.videos || !videoResult.videos.length) {
                 return interaction.editReply('💔 No melodies found! Try another search!');
             }
             
@@ -412,8 +530,11 @@ async function handlePlay(interaction) {
             };
         }
     } catch (error) {
-        console.error(error);
-        return interaction.editReply('💫 There was an error searching for that melody!');
+        console.error('Play command error:', error);
+        if (error.message === 'Search timed out') {
+            return interaction.editReply('💫 The search took too long! Please try again or use a YouTube URL directly!');
+        }
+        return interaction.editReply('💫 There was an error searching for that melody! Try using a YouTube URL instead!');
     }
 
     if (!serverQueue) {
@@ -621,6 +742,204 @@ async function handleNowPlaying(interaction) {
         .setTimestamp();
 
     await interaction.reply({ embeds: [embed] });
+}
+
+async function handleHelp(interaction) {
+    const embed1 = new EmbedBuilder()
+        .setColor('#FF69B4')
+        .setTitle('✨💖 Welcome to Supernova! 💖✨')
+        .setDescription('*Magical Girl Supernova is here to spread love and music!*\n\n**Quick Start Guide:**')
+        .addFields(
+            {
+                name: '1️⃣ Join a Voice Channel',
+                value: 'Connect to any voice channel in your server first!',
+                inline: false
+            },
+            {
+                name: '2️⃣ Play Your First Song',
+                value: 'Use `/play <song name>` to summon a melody!\nExample: `/play never gonna give you up`',
+                inline: false
+            },
+            {
+                name: '3️⃣ Control Playback',
+                value: 'Use `/pause`, `/resume`, `/skip`, or `/stop` to control the music!',
+                inline: false
+            },
+            {
+                name: '4️⃣ Create Music Sanctuary (Optional)',
+                value: 'Admins can use `/setup-player` to create a dedicated music channel with buttons!',
+                inline: false
+            }
+        )
+        .setFooter({ text: '💫 Page 1/2 • Use the buttons below to see all commands!' })
+        .setTimestamp();
+
+    const embed2 = new EmbedBuilder()
+        .setColor('#FF1493')
+        .setTitle('📜 All Commands')
+        .setDescription('*Here are all my magical powers!* ✨')
+        .addFields(
+            {
+                name: '🎵 Music Commands',
+                value: 
+                    '**`/play <song>`** - Summon a song from YouTube\n' +
+                    '> You can use a song name or YouTube URL!\n' +
+                    '> Example: `/play despacito`\n\n' +
+                    '**`/pause`** - Pause the current song\n' +
+                    '> Take a break from the music\n\n' +
+                    '**`/resume`** - Resume playback\n' +
+                    '> Continue where you left off!\n\n' +
+                    '**`/skip`** - Skip to the next song\n' +
+                    '> Don\'t like this one? Next!\n\n' +
+                    '**`/stop`** - Stop music and clear queue\n' +
+                    '> End the concert completely',
+                inline: false
+            },
+            {
+                name: '📊 Info Commands',
+                value:
+                    '**`/queue`** - View your playlist\n' +
+                    '> See what\'s coming up next!\n\n' +
+                    '**`/nowplaying`** - Current song info\n' +
+                    '> What\'s this melody?\n\n' +
+                    '**`/help`** - Show this help menu\n' +
+                    '> You\'re here now! 💖',
+                inline: false
+            },
+            {
+                name: '✨ Special Commands (Admin Only)',
+                value:
+                    '**`/setup-player [name]`** - Create music sanctuary\n' +
+                    '> Creates a special channel with interactive buttons!\n' +
+                    '> Example: `/setup-player channel-name:💖-music-zone`\n' +
+                    '> Requires Administrator permission',
+                inline: false
+            }
+        )
+        .setFooter({ text: '💫 Page 2/2 • Magical Girl Supernova' })
+        .setTimestamp();
+
+    const embed3 = new EmbedBuilder()
+        .setColor('#FFB6C1')
+        .setTitle('🎮 Interactive Music Sanctuary')
+        .setDescription('*The music sanctuary is a special channel with magical buttons!*')
+        .addFields(
+            {
+                name: 'What is it?',
+                value: 
+                    'A dedicated text channel that shows:\n' +
+                    '• Currently playing song\n' +
+                    '• Real-time playback status\n' +
+                    '• Queue size\n' +
+                    '• Interactive control buttons!',
+                inline: false
+            },
+            {
+                name: '🎀 Sanctuary Buttons',
+                value:
+                    '**💗 Pause / 💖 Resume** - Toggle playback\n' +
+                    '**💫 Skip** - Skip to next song\n' +
+                    '**💔 Stop** - Stop everything\n' +
+                    '**📜 Playlist** - View queue (private message)',
+                inline: false
+            },
+            {
+                name: 'How to Create',
+                value:
+                    '1. Make sure you have **Administrator** permission\n' +
+                    '2. Use `/setup-player` command\n' +
+                    '3. Optionally add a custom name\n' +
+                    '4. A magical channel appears! ✨',
+                inline: false
+            },
+            {
+                name: '💡 Tips',
+                value:
+                    '• The sanctuary updates automatically!\n' +
+                    '• Only one per server\n' +
+                    '• Shows beautiful pink embeds\n' +
+                    '• Members can\'t send messages there',
+                inline: false
+            }
+        )
+        .setFooter({ text: '💫 Page 3/3 • Music Sanctuary Guide' })
+        .setTimestamp();
+
+    const embed4 = new EmbedBuilder()
+        .setColor('#FF69B4')
+        .setTitle('💝 Tips & Tricks')
+        .setDescription('*Make the most of Supernova!*')
+        .addFields(
+            {
+                name: '🎵 Playing Music',
+                value:
+                    '• You can search by song name or paste a YouTube URL\n' +
+                    '• Songs are added to queue automatically\n' +
+                    '• Queue plays in order - first added, first played\n' +
+                    '• Multiple people can add songs!',
+                inline: false
+            },
+            {
+                name: '💫 Voice Channel',
+                value:
+                    '• You must be in a voice channel to use commands\n' +
+                    '• Bot joins your current channel\n' +
+                    '• Bot stays until queue is empty or `/stop` is used\n' +
+                    '• Anyone in voice can control playback!',
+                inline: false
+            },
+            {
+                name: '✨ Legacy Commands',
+                value:
+                    'You can also use `!` prefix commands:\n' +
+                    '`!play`, `!pause`, `!resume`, `!skip`, `!stop`, `!queue`\n' +
+                    'But slash commands (`/`) are recommended!',
+                inline: false
+            },
+            {
+                name: '🌟 Permissions Needed',
+                value:
+                    '**For Music:** Connect, Speak, View Channels\n' +
+                    '**For Sanctuary:** Manage Channels (admin only)\n' +
+                    '**Everyone Else:** Can use all music commands!',
+                inline: false
+            },
+            {
+                name: '💖 Need More Help?',
+                value:
+                    'Having issues? Check that:\n' +
+                    '• Bot has proper permissions\n' +
+                    '• You\'re in a voice channel\n' +
+                    '• The voice channel isn\'t full\n' +
+                    '• Bot is online and connected',
+                inline: false
+            }
+        )
+        .setFooter({ text: '💫 Page 4/4 • Tips & Tricks' })
+        .setTimestamp();
+
+    // Create navigation buttons
+    const row = new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId('help_quick_start')
+                .setLabel('📖 Quick Start')
+                .setStyle(ButtonStyle.Primary),
+            new ButtonBuilder()
+                .setCustomId('help_commands')
+                .setLabel('📜 Commands')
+                .setStyle(ButtonStyle.Primary),
+            new ButtonBuilder()
+                .setCustomId('help_sanctuary')
+                .setLabel('🎮 Sanctuary')
+                .setStyle(ButtonStyle.Success),
+            new ButtonBuilder()
+                .setCustomId('help_tips')
+                .setLabel('💝 Tips')
+                .setStyle(ButtonStyle.Secondary)
+        );
+
+    await interaction.reply({ embeds: [embed1], components: [row] });
 }
 
 // Legacy command handlers
