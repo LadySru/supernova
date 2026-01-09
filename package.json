@@ -17,8 +17,7 @@
     "yt-search": "^2.10.4",
     "ffmpeg-static": "^5.2.0",
     "libsodium-wrappers": "^0.7.15",
-    "sodium-native": "^4.2.0",
-    "tweetnacl": "^1.0.3"
+    "@ronomon/crypto-async": "^4.2.3"
   },
   "engines": {
     "node": "20.x"

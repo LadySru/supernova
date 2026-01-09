@@ -3,6 +3,14 @@ const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerSta
 const ytdl = require('@distube/ytdl-core');
 const ytSearch = require('yt-search');
 
+// Fix for encryption mode error - force load libsodium
+try {
+    require('libsodium-wrappers');
+    console.log('✅ Encryption library loaded successfully');
+} catch (e) {
+    console.warn('⚠️ libsodium-wrappers not available, using fallback');
+}
+
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
