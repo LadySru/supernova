@@ -269,12 +269,6 @@ async function handleRemoveSticky(interaction) {
         ephemeral: true 
     });
 }
-    
-    await interaction.reply({ 
-        content: '✅ Sticky message removed from this channel!', 
-        ephemeral: true 
-    });
-}
 
 async function handleButton(interaction) {
     // Extract guild and channel ID from button custom ID
