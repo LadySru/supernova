@@ -1,153 +1,392 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sticky Bot - Dashboard</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } = require('discord.js');
+const { startWebServer, setDiscordClient, getStickyConfigs } = require('./dashboard-secure');
+
+const client = new Client({
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent
+    ]
+});
+
+client.on('ready', async () => {
+    console.log(`✨ ${client.user.tag} is online!`);
+    
+    // Start secure dashboard
+    setDiscordClient(client);
+    startWebServer();
+    console.log('🔒 Secure MEE6-style dashboard started!');
+    
+    // Register slash commands
+    const commands = [
+        {
+            name: 'setup-sticky',
+            description: '📌 Setup an ephemeral sticky message for this channel (Admin only)',
+            options: [
+                {
+                    name: 'title',
+                    type: 3,
+                    description: 'Title of the sticky message',
+                    required: true
+                },
+                {
+                    name: 'description',
+                    type: 3,
+                    description: 'Description text',
+                    required: true
+                },
+                {
+                    name: 'button-text',
+                    type: 3,
+                    description: 'Text on the button',
+                    required: true
+                },
+                {
+                    name: 'response',
+                    type: 3,
+                    description: 'Message to show when button is clicked',
+                    required: false
+                },
+                {
+                    name: 'gif-url',
+                    type: 3,
+                    description: 'GIF URL to show when button is clicked',
+                    required: false
+                },
+                {
+                    name: 'color',
+                    type: 3,
+                    description: 'Embed color (hex code like #FF69B4)',
+                    required: false
+                }
+            ]
+        },
+        {
+            name: 'remove-sticky',
+            description: '🗑️ Remove the sticky message from this channel (Admin only)'
+        },
+        {
+            name: 'help',
+            description: '❓ Show help information'
         }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+    ];
+
+    try {
+        console.log('Registering slash commands...');
+        await client.application.commands.set(commands);
+        console.log('✅ Slash commands registered successfully!');
+    } catch (error) {
+        console.error('Error registering commands:', error);
+    }
+});
+
+// Handle interactions
+client.on('interactionCreate', async (interaction) => {
+    if (interaction.isChatInputCommand()) {
+        if (interaction.commandName === 'setup-sticky') {
+            await handleSetupSticky(interaction);
+        } else if (interaction.commandName === 'remove-sticky') {
+            await handleRemoveSticky(interaction);
+        } else if (interaction.commandName === 'help') {
+            await handleHelp(interaction);
         }
-        
-        .landing-container {
-            text-align: center;
-            color: white;
-            max-width: 800px;
-            padding: 40px;
-        }
-        
-        .logo {
-            font-size: 72px;
-            margin-bottom: 20px;
-        }
-        
-        h1 {
-            font-size: 48px;
-            margin-bottom: 20px;
-        }
-        
-        .subtitle {
-            font-size: 24px;
-            margin-bottom: 40px;
-            opacity: 0.9;
-        }
-        
-        .features {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 30px;
-            margin: 60px 0;
-        }
-        
-        .feature {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 30px;
-            border-radius: 15px;
-            backdrop-filter: blur(10px);
-        }
-        
-        .feature-icon {
-            font-size: 48px;
-            margin-bottom: 15px;
-        }
-        
-        .feature h3 {
-            font-size: 24px;
-            margin-bottom: 10px;
-        }
-        
-        .feature p {
-            opacity: 0.9;
-            line-height: 1.6;
-        }
-        
-        .login-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 15px;
-            background: #5865F2;
-            color: white;
-            padding: 20px 40px;
-            border-radius: 50px;
-            text-decoration: none;
-            font-size: 20px;
-            font-weight: bold;
-            transition: all 0.3s;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-        }
-        
-        .login-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4);
-            background: #4752C4;
-        }
-        
-        .discord-logo {
-            width: 32px;
-            height: 32px;
-        }
-        
-        .footer {
-            margin-top: 60px;
-            opacity: 0.8;
-        }
-    </style>
-</head>
-<body>
-    <div class="landing-container">
-        <div class="logo">📌</div>
-        <h1>Sticky Bot Dashboard</h1>
-        <p class="subtitle">Manage your ephemeral sticky messages with ease</p>
-        
-        <a href="/auth/discord" class="login-btn">
-            <svg class="discord-logo" viewBox="0 0 71 55" fill="none">
-                <g clip-path="url(#clip0)">
-                <path d="M60.1045 4.8978C55.5792 2.8214 50.7265 1.2916 45.6527 0.41542C45.5603 0.39851 45.468 0.440769 45.4204 0.525289C44.7963 1.6353 44.105 3.0834 43.6209 4.2216C38.1637 3.4046 32.7345 3.4046 27.3892 4.2216C26.905 3.0581 26.1886 1.6353 25.5617 0.525289C25.5141 0.443589 25.4218 0.40133 25.3294 0.41542C20.2584 1.2888 15.4057 2.8186 10.8776 4.8978C10.8384 4.9147 10.8048 4.9429 10.7825 4.9795C1.57795 18.7309 -0.943561 32.1443 0.293408 45.3914C0.299005 45.4562 0.335386 45.5182 0.385761 45.5576C6.45866 50.0174 12.3413 52.7249 18.1147 54.5195C18.2071 54.5477 18.305 54.5139 18.3638 54.4378C19.7295 52.5728 20.9469 50.6063 21.9907 48.5383C22.0523 48.4172 21.9935 48.2735 21.8676 48.2256C19.9366 47.4931 18.0979 46.6 16.3292 45.5858C16.1893 45.5041 16.1781 45.304 16.3068 45.2082C16.679 44.9293 17.0513 44.6391 17.4067 44.3461C17.471 44.2926 17.5606 44.2813 17.6362 44.3151C29.2558 49.6202 41.8354 49.6202 53.3179 44.3151C53.3935 44.2785 53.4831 44.2898 53.5502 44.3433C53.9057 44.6363 54.2779 44.9293 54.6529 45.2082C54.7816 45.304 54.7732 45.5041 54.6333 45.5858C52.8646 46.6197 51.0259 47.4931 49.0921 48.2228C48.9662 48.2707 48.9102 48.4172 48.9718 48.5383C50.038 50.6034 51.2554 52.5699 52.5959 54.435C52.6519 54.5139 52.7526 54.5477 52.845 54.5195C58.6464 52.7249 64.529 50.0174 70.6019 45.5576C70.6551 45.5182 70.6887 45.459 70.6943 45.3942C72.1747 30.0791 68.2147 16.7757 60.1968 4.9823C60.1772 4.9429 60.1437 4.9147 60.1045 4.8978ZM23.7259 37.3253C20.2276 37.3253 17.3451 34.1136 17.3451 30.1693C17.3451 26.225 20.1717 23.0133 23.7259 23.0133C27.308 23.0133 30.1626 26.2532 30.1066 30.1693C30.1066 34.1136 27.28 37.3253 23.7259 37.3253ZM47.3178 37.3253C43.8196 37.3253 40.9371 34.1136 40.9371 30.1693C40.9371 26.225 43.7636 23.0133 47.3178 23.0133C50.9 23.0133 53.7545 26.2532 53.6986 30.1693C53.6986 34.1136 50.9 37.3253 47.3178 37.3253Z" fill="currentColor"/>
-                </g>
-            </svg>
-            Login with Discord
-        </a>
-        
-        <div class="features">
-            <div class="feature">
-                <div class="feature-icon">🔐</div>
-                <h3>Secure Login</h3>
-                <p>Login safely with your Discord account using OAuth</p>
-            </div>
+    } else if (interaction.isButton()) {
+        await handleButton(interaction);
+    }
+});
+
+// Send ephemeral sticky to users who send messages
+client.on('messageCreate', async (message) => {
+    if (message.author.bot) return;
+    
+    const stickyConfigs = getStickyConfigs();
+    const guildId = message.guild?.id;
+    const channelId = message.channel.id;
+    
+    if (!guildId || !stickyConfigs[guildId] || !stickyConfigs[guildId][channelId]) return;
+    
+    const config = stickyConfigs[guildId][channelId];
+    
+    try {
+        // Get GIF for sticky message
+        let gifUrl = null;
+        if (config.stickyGifs && config.stickyGifs.length > 0) {
+            const gifs = config.stickyGifs;
+            const mode = config.stickyMode || config.mode || 'random';
             
-            <div class="feature">
-                <div class="feature-icon">📌</div>
-                <h3>Ephemeral Stickies</h3>
-                <p>Create private sticky messages that only users can see</p>
-            </div>
-            
-            <div class="feature">
-                <div class="feature-icon">🎨</div>
-                <h3>GIF Library</h3>
-                <p>Upload and manage your GIF collection</p>
-            </div>
-            
-            <div class="feature">
-                <div class="feature-icon">⚙️</div>
-                <h3>Easy Management</h3>
-                <p>Configure stickies per channel with a beautiful interface</p>
-            </div>
-        </div>
+            if (mode === 'random') {
+                gifUrl = gifs[Math.floor(Math.random() * gifs.length)];
+            } else if (mode === 'cycle') {
+                const index = config.stickyCurrentIndex || 0;
+                gifUrl = gifs[index % gifs.length];
+                config.stickyCurrentIndex = (index + 1) % gifs.length;
+            } else {
+                gifUrl = gifs[0];
+            }
+        } else if (config.gifUrl) {
+            // Backwards compatibility
+            gifUrl = config.gifUrl;
+        } else if (config.gifs && config.gifs.length > 0) {
+            gifUrl = config.gifs[0];
+        }
         
-        <div class="footer">
-            <p>Made with 💖 for Discord communities</p>
-        </div>
-    </div>
-</body>
-</html>
+        // Create the embed
+        const embed = new EmbedBuilder()
+            .setColor(config.color || '#FF69B4')
+            .setTitle(config.title)
+            .setDescription(config.description)
+            .setFooter({ text: 'This message is only visible to you' })
+            .setTimestamp();
+        
+        if (gifUrl) {
+            embed.setImage(gifUrl);
+        }
+        
+        // Create button
+        const button = new ButtonBuilder()
+            .setCustomId(`sticky_${guildId}_${channelId}_${message.author.id}`)
+            .setLabel(config.buttonText)
+            .setStyle(ButtonStyle.Primary);
+        
+        const row = new ActionRowBuilder().addComponents(button);
+        
+        // Send ephemeral message that only the user can see
+        await message.reply({
+            embeds: [embed],
+            components: [row],
+            flags: [4096] // EPHEMERAL flag
+        }).catch(() => {
+            // If reply fails, try sending in channel (fallback)
+            message.channel.send({
+                content: `<@${message.author.id}>`,
+                embeds: [embed],
+                components: [row]
+            }).then(msg => {
+                // Delete after 30 seconds
+                setTimeout(() => msg.delete().catch(() => {}), 30000);
+            });
+        });
+        
+    } catch (error) {
+        console.error('Error sending sticky:', error);
+    }
+});
+
+async function handleSetupSticky(interaction) {
+    // Check permissions
+    if (!interaction.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
+        return interaction.reply({ 
+            content: '❌ You need "Manage Messages" permission to setup sticky messages!', 
+            ephemeral: true 
+        });
+    }
+    
+    const title = interaction.options.getString('title');
+    const description = interaction.options.getString('description');
+    const buttonText = interaction.options.getString('button-text');
+    const response = interaction.options.getString('response');
+    const gifUrl = interaction.options.getString('gif-url');
+    const color = interaction.options.getString('color') || '#FF69B4';
+    
+    if (!response && !gifUrl) {
+        return interaction.reply({ 
+            content: '❌ You must provide either a response message or GIF URL!', 
+            ephemeral: true 
+        });
+    }
+    
+    // Get sticky configs from dashboard
+    const stickyConfigs = getStickyConfigs();
+    const guildId = interaction.guild.id;
+    const channelId = interaction.channel.id;
+    
+    // Initialize guild config if needed
+    if (!stickyConfigs[guildId]) {
+        stickyConfigs[guildId] = {};
+    }
+    
+    // Store configuration
+    stickyConfigs[guildId][channelId] = {
+        title,
+        description,
+        buttonText,
+        responseMessage: response,
+        color,
+        stickyGifs: gifUrl ? [gifUrl] : [],
+        stickyMode: 'single',
+        buttonGifs: gifUrl ? [gifUrl] : [],
+        buttonMode: 'single',
+        // Backwards compatibility
+        response,
+        gifUrl,
+        gifs: gifUrl ? [gifUrl] : [],
+        mode: 'single'
+    };
+    
+    await interaction.reply({ 
+        content: `✅ Ephemeral sticky message setup complete!\n\nNow when anyone sends a message in this channel, they'll see a private sticky message (only visible to them) with your button!\n\n💡 **Tip:** Use the web dashboard at https://supernova-z34z.onrender.com for advanced features like multiple GIFs and cycling modes!`, 
+        ephemeral: true 
+    });
+}
+
+async function handleRemoveSticky(interaction) {
+    // Check permissions
+    if (!interaction.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
+        return interaction.reply({ 
+            content: '❌ You need "Manage Messages" permission to remove sticky messages!', 
+            ephemeral: true 
+        });
+    }
+    
+    const stickyConfigs = getStickyConfigs();
+    const guildId = interaction.guild.id;
+    const channelId = interaction.channel.id;
+    
+    if (!stickyConfigs[guildId] || !stickyConfigs[guildId][channelId]) {
+        return interaction.reply({ 
+            content: '❌ There is no sticky message configured for this channel!', 
+            ephemeral: true 
+        });
+    }
+    
+    delete stickyConfigs[guildId][channelId];
+    
+    await interaction.reply({ 
+        content: '✅ Sticky message removed from this channel!', 
+        ephemeral: true 
+    });
+}
+    
+    await interaction.reply({ 
+        content: '✅ Sticky message removed from this channel!', 
+        ephemeral: true 
+    });
+}
+
+async function handleButton(interaction) {
+    // Extract guild and channel ID from button custom ID
+    const parts = interaction.customId.split('_');
+    const guildId = parts[1];
+    const channelId = parts[2];
+    
+    const stickyConfigs = getStickyConfigs();
+    
+    if (!stickyConfigs[guildId] || !stickyConfigs[guildId][channelId]) {
+        return interaction.reply({ 
+            content: '❌ Sticky message configuration not found!', 
+            flags: [4096] // EPHEMERAL
+        });
+    }
+    
+    const config = stickyConfigs[guildId][channelId];
+    
+    // Get GIF for button response
+    let gifUrl = null;
+    if (config.buttonGifs && config.buttonGifs.length > 0) {
+        const gifs = config.buttonGifs;
+        const mode = config.buttonMode || 'random';
+        
+        if (mode === 'random') {
+            gifUrl = gifs[Math.floor(Math.random() * gifs.length)];
+        } else if (mode === 'cycle') {
+            const index = config.buttonCurrentIndex || 0;
+            gifUrl = gifs[index % gifs.length];
+            config.buttonCurrentIndex = (index + 1) % gifs.length;
+        } else {
+            gifUrl = gifs[0];
+        }
+    } else if (config.gifUrl) {
+        // Backwards compatibility
+        gifUrl = config.gifUrl;
+    }
+    
+    // Build response
+    let replyContent = {
+        flags: [4096] // EPHEMERAL - only visible to the user
+    };
+    
+    const responseMessage = config.responseMessage || config.response;
+    
+    if (gifUrl) {
+        const embed = new EmbedBuilder()
+            .setImage(gifUrl)
+            .setColor(config.color || '#FF69B4');
+        
+        if (responseMessage) {
+            embed.setDescription(responseMessage);
+        }
+        
+        replyContent.embeds = [embed];
+    } else if (responseMessage) {
+        replyContent.content = responseMessage;
+    } else {
+        replyContent.content = '✨ Button clicked!';
+    }
+    
+    await interaction.reply(replyContent);
+}
+
+async function handleHelp(interaction) {
+    const embed = new EmbedBuilder()
+        .setColor('#FF69B4')
+        .setTitle('📌 Ephemeral Sticky Bot - Help')
+        .setDescription('Create sticky messages that only appear to individual users!')
+        .addFields(
+            {
+                name: '📌 How It Works',
+                value: 
+                    '1. Admin sets up sticky message in a channel\n' +
+                    '2. When anyone sends a message, they get a private sticky\n' +
+                    '3. The sticky is only visible to them (ephemeral)\n' +
+                    '4. They can click the button for a response\n' +
+                    '5. Response is also private (only they see it)',
+                inline: false
+            },
+            {
+                name: '⚙️ /setup-sticky',
+                value: 
+                    'Configure an ephemeral sticky for this channel\n\n' +
+                    '**Required:**\n' +
+                    '• `title` - Title of sticky message\n' +
+                    '• `description` - Message content\n' +
+                    '• `button-text` - Text on button\n\n' +
+                    '**Response (pick one):**\n' +
+                    '• `response` - Text message\n' +
+                    '• `gif-url` - GIF to show\n\n' +
+                    '**Optional:**\n' +
+                    '• `color` - Hex color code',
+                inline: false
+            },
+            {
+                name: '🗑️ /remove-sticky',
+                value: 'Remove sticky message from this channel',
+                inline: false
+            },
+            {
+                name: '💡 Example',
+                value: 
+                    '```/setup-sticky title:"Welcome!" description:"Thanks for chatting!" button-text:"Click Me" response:"Hello there!"```',
+                inline: false
+            },
+            {
+                name: '✨ Benefits',
+                value: 
+                    '• No channel clutter - messages are private!\n' +
+                    '• Each user sees their own sticky\n' +
+                    '• Responses are also private\n' +
+                    '• Clean and organized',
+                inline: false
+            },
+            {
+                name: '🔑 Permissions',
+                value: 'Only users with "Manage Messages" can setup/remove sticky messages',
+                inline: false
+            }
+        )
+        .setFooter({ text: 'Ephemeral Sticky Bot' })
+        .setTimestamp();
+    
+    await interaction.reply({ embeds: [embed], ephemeral: true });
+}
+
+client.login(process.env.DISCORD_TOKEN);
