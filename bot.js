@@ -1,5 +1,6 @@
 const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } = require('discord.js');
 const { startWebServer, setDiscordClient, getStickyConfigs } = require('./dashboard-secure');
+const { fetchTenorGif } = require('./tenor-helper');
 
 const client = new Client({
     intents: [
@@ -100,10 +101,48 @@ client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
     
     const stickyConfigs = getStickyConfigs();
-    const config = stickyConfigs.get(message.channel.id);
-    if (!config) return;
+    const guildId = message.guild?.id;
+    const channelId = message.channel.id;
+    
+    if (!guildId || !stickyConfigs[guildId] || !stickyConfigs[guildId][channelId]) return;
+    
+    const config = stickyConfigs[guildId][channelId];
     
     try {
+        // Get GIF for sticky message
+        let gifUrl = null;
+        const mode = config.stickyMode || config.mode || 'random';
+        
+        if (mode === 'keyword' && config.stickyKeywords) {
+            // Fetch GIF from Tenor using keywords
+            try {
+                gifUrl = await fetchTenorGif(config.stickyKeywords);
+            } catch (error) {
+                console.error('Tenor fetch error:', error);
+                // Fall back to static GIFs if available
+                if (config.stickyGifs && config.stickyGifs.length > 0) {
+                    gifUrl = config.stickyGifs[0];
+                }
+            }
+        } else if (config.stickyGifs && config.stickyGifs.length > 0) {
+            const gifs = config.stickyGifs;
+            
+            if (mode === 'random') {
+                gifUrl = gifs[Math.floor(Math.random() * gifs.length)];
+            } else if (mode === 'cycle') {
+                const index = config.stickyCurrentIndex || 0;
+                gifUrl = gifs[index % gifs.length];
+                config.stickyCurrentIndex = (index + 1) % gifs.length;
+            } else {
+                gifUrl = gifs[0];
+            }
+        } else if (config.gifUrl) {
+            // Backwards compatibility
+            gifUrl = config.gifUrl;
+        } else if (config.gifs && config.gifs.length > 0) {
+            gifUrl = config.gifs[0];
+        }
+        
         // Create the embed
         const embed = new EmbedBuilder()
             .setColor(config.color || '#FF69B4')
@@ -112,9 +151,13 @@ client.on('messageCreate', async (message) => {
             .setFooter({ text: 'This message is only visible to you' })
             .setTimestamp();
         
+        if (gifUrl) {
+            embed.setImage(gifUrl);
+        }
+        
         // Create button
         const button = new ButtonBuilder()
-            .setCustomId(`sticky_${message.channel.id}_${message.author.id}`)
+            .setCustomId(`sticky_${guildId}_${channelId}_${message.author.id}`)
             .setLabel(config.buttonText)
             .setStyle(ButtonStyle.Primary);
         
@@ -124,7 +167,7 @@ client.on('messageCreate', async (message) => {
         await message.reply({
             embeds: [embed],
             components: [row],
-            ephemeral: true // This makes it only visible to the user!
+            flags: [4096] // EPHEMERAL flag
         }).catch(() => {
             // If reply fails, try sending in channel (fallback)
             message.channel.send({
@@ -165,18 +208,36 @@ async function handleSetupSticky(interaction) {
         });
     }
     
+    // Get sticky configs from dashboard
+    const stickyConfigs = getStickyConfigs();
+    const guildId = interaction.guild.id;
+    const channelId = interaction.channel.id;
+    
+    // Initialize guild config if needed
+    if (!stickyConfigs[guildId]) {
+        stickyConfigs[guildId] = {};
+    }
+    
     // Store configuration
-    stickyConfigs.set(interaction.channel.id, {
+    stickyConfigs[guildId][channelId] = {
         title,
         description,
         buttonText,
+        responseMessage: response,
+        color,
+        stickyGifs: gifUrl ? [gifUrl] : [],
+        stickyMode: 'single',
+        buttonGifs: gifUrl ? [gifUrl] : [],
+        buttonMode: 'single',
+        // Backwards compatibility
         response,
         gifUrl,
-        color
-    });
+        gifs: gifUrl ? [gifUrl] : [],
+        mode: 'single'
+    };
     
     await interaction.reply({ 
-        content: `✅ Ephemeral sticky message setup complete!\n\nNow when anyone sends a message in this channel, they'll see a private sticky message (only visible to them) with your button!`, 
+        content: `✅ Ephemeral sticky message setup complete!\n\nNow when anyone sends a message in this channel, they'll see a private sticky message (only visible to them) with your button!\n\n💡 **Tip:** Use the web dashboard at https://supernova-z34z.onrender.com for advanced features like multiple GIFs and cycling modes!`, 
         ephemeral: true 
     });
 }
@@ -190,14 +251,24 @@ async function handleRemoveSticky(interaction) {
         });
     }
     
-    if (!stickyConfigs.has(interaction.channel.id)) {
+    const stickyConfigs = getStickyConfigs();
+    const guildId = interaction.guild.id;
+    const channelId = interaction.channel.id;
+    
+    if (!stickyConfigs[guildId] || !stickyConfigs[guildId][channelId]) {
         return interaction.reply({ 
             content: '❌ There is no sticky message configured for this channel!', 
             ephemeral: true 
         });
     }
     
-    stickyConfigs.delete(interaction.channel.id);
+    delete stickyConfigs[guildId][channelId];
+    
+    await interaction.reply({ 
+        content: '✅ Sticky message removed from this channel!', 
+        ephemeral: true 
+    });
+}
     
     await interaction.reply({ 
         content: '✅ Sticky message removed from this channel!', 
@@ -206,36 +277,75 @@ async function handleRemoveSticky(interaction) {
 }
 
 async function handleButton(interaction) {
-    // Extract channel ID from button custom ID
+    // Extract guild and channel ID from button custom ID
     const parts = interaction.customId.split('_');
-    const channelId = parts[1];
+    const guildId = parts[1];
+    const channelId = parts[2];
     
     const stickyConfigs = getStickyConfigs();
-    const config = stickyConfigs.get(channelId);
     
-    if (!config) {
+    if (!stickyConfigs[guildId] || !stickyConfigs[guildId][channelId]) {
         return interaction.reply({ 
             content: '❌ Sticky message configuration not found!', 
-            ephemeral: true 
+            flags: [4096] // EPHEMERAL
         });
+    }
+    
+    const config = stickyConfigs[guildId][channelId];
+    
+    // Get GIF for button response
+    let gifUrl = null;
+    const mode = config.buttonMode || 'random';
+    
+    if (mode === 'keyword' && config.buttonKeywords) {
+        // Fetch GIF from Tenor using keywords
+        try {
+            gifUrl = await fetchTenorGif(config.buttonKeywords);
+        } catch (error) {
+            console.error('Tenor fetch error:', error);
+            // Fall back to static GIFs if available
+            if (config.buttonGifs && config.buttonGifs.length > 0) {
+                gifUrl = config.buttonGifs[0];
+            }
+        }
+    } else if (config.buttonGifs && config.buttonGifs.length > 0) {
+        const gifs = config.buttonGifs;
+        
+        if (mode === 'random') {
+            gifUrl = gifs[Math.floor(Math.random() * gifs.length)];
+        } else if (mode === 'cycle') {
+            const index = config.buttonCurrentIndex || 0;
+            gifUrl = gifs[index % gifs.length];
+            config.buttonCurrentIndex = (index + 1) % gifs.length;
+        } else {
+            gifUrl = gifs[0];
+        }
+    } else if (config.gifUrl) {
+        // Backwards compatibility
+        gifUrl = config.gifUrl;
     }
     
     // Build response
     let replyContent = {
-        ephemeral: true // Response is also only visible to the user
+        flags: [4096] // EPHEMERAL - only visible to the user
     };
     
-    if (config.gifUrl) {
+    const responseMessage = config.responseMessage || config.response;
+    
+    if (gifUrl) {
         const embed = new EmbedBuilder()
-            .setImage(config.gifUrl)
+            .setImage(gifUrl)
             .setColor(config.color || '#FF69B4');
         
-        replyContent.embeds = [embed];
-        if (config.response) {
-            replyContent.content = config.response;
+        if (responseMessage) {
+            embed.setDescription(responseMessage);
         }
-    } else if (config.response) {
-        replyContent.content = config.response;
+        
+        replyContent.embeds = [embed];
+    } else if (responseMessage) {
+        replyContent.content = responseMessage;
+    } else {
+        replyContent.content = '✨ Button clicked!';
     }
     
     await interaction.reply(replyContent);
