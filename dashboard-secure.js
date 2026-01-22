@@ -320,12 +320,20 @@ app.post('/api/guilds/:guildId/channels/:channelId/config', isAuth, hasGuildAcce
         const buttonText = sanitizeInput(req.body.buttonText);
         const responseMessage = sanitizeInput(req.body.responseMessage || '');
         const color = validateHexColor(req.body.color);
-        const mode = ['random', 'cycle', 'single'].includes(req.body.mode) ? req.body.mode : 'random';
         
-        // Validate GIF URLs
-        const gifs = Array.isArray(req.body.gifs) ? 
-            req.body.gifs.map(gif => validateURL(gif)).filter(url => url) : 
-            [];
+        // Sticky GIF settings
+        const stickyMode = ['random', 'cycle', 'single', 'keyword'].includes(req.body.stickyMode) ? req.body.stickyMode : 
+                          (['random', 'cycle', 'single', 'keyword'].includes(req.body.mode) ? req.body.mode : 'random');
+        const stickyGifs = Array.isArray(req.body.stickyGifs) ? 
+            req.body.stickyGifs.map(gif => validateURL(gif)).filter(url => url) : 
+            (Array.isArray(req.body.gifs) ? req.body.gifs.map(gif => validateURL(gif)).filter(url => url) : []);
+        const stickyKeywords = sanitizeInput(req.body.stickyKeywords || '');
+        
+        // Button GIF settings (separate from sticky)
+        const buttonMode = ['random', 'cycle', 'single', 'keyword'].includes(req.body.buttonMode) ? req.body.buttonMode : 'random';
+        const buttonGifs = Array.isArray(req.body.buttonGifs) ? 
+            req.body.buttonGifs.map(gif => validateURL(gif)).filter(url => url) : [];
+        const buttonKeywords = sanitizeInput(req.body.buttonKeywords || '');
         
         if (!title || !description || !buttonText) {
             return res.status(400).json({ error: 'Missing required fields' });
@@ -343,11 +351,22 @@ app.post('/api/guilds/:guildId/channels/:channelId/config', isAuth, hasGuildAcce
             title,
             description,
             buttonText,
-            gifs,
             color,
-            mode,
-            currentIndex: 0,
-            responseMessage
+            responseMessage,
+            // Sticky message settings
+            stickyGifs,
+            stickyMode,
+            stickyKeywords,
+            stickyCurrentIndex: 0,
+            // Button response settings
+            buttonGifs,
+            buttonMode,
+            buttonKeywords,
+            buttonCurrentIndex: 0,
+            // Backwards compatibility
+            gifs: stickyGifs,
+            mode: stickyMode,
+            currentIndex: 0
         };
         
         res.json({ success: true });
